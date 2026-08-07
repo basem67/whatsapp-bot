@@ -3,6 +3,9 @@
  * Baileys — بدون Puppeteer، خفيف وبيشتغل على أي سيرفر
  */
 
+// ضروري لـ Baileys على Node.js 18
+global.crypto = require("crypto").webcrypto;
+
 const { default: makeWASocket, useMultiFileAuthState,
         DisconnectReason, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
 const { Boom }  = require("@hapi/boom");
