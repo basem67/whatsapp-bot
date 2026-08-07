@@ -297,10 +297,22 @@ async function connectToWhatsApp() {
   });
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
-    if (type !== "notify") return;
     for (const msg of messages) {
-      if (msg.key.fromMe || !msg.message) continue;
-      const body = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").trim();
+      // تجاهل رسايل البوت نفسه بس
+      if (msg.key.fromMe) continue;
+      if (!msg.message) continue;
+
+      // استخراج النص من كل أنواع الرسائل
+      const body = (
+        msg.message.conversation ||
+        msg.message.extendedTextMessage?.text ||
+        msg.message.imageMessage?.caption ||
+        msg.message.videoMessage?.caption ||
+        ""
+      ).trim();
+
+      console.log(`📩 رسالة جديدة [${type}]: "${body}" من ${msg.key.remoteJid}`);
+
       if (!body) continue;
       await handleMessage(msg.key.remoteJid, body, msg);
     }
