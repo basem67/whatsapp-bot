@@ -237,6 +237,28 @@ bot.on("message", async (msg) => {
     await send(chatId, await getTopCurrencies()); return;
   }
 
+  // 🎨 توليد صور
+  if (body.startsWith("!صورة")) {
+    let style = "realistic", prompt = "";
+    if (body.startsWith("!صورة-انمي "))      { style="anime";           prompt=body.slice(11).trim(); }
+    else if (body.startsWith("!صورة-فن "))    { style="digital art";     prompt=body.slice(9).trim();  }
+    else if (body.startsWith("!صورة-واقعية ")){ style="photorealistic";  prompt=body.slice(13).trim(); }
+    else if (body.startsWith("!صورة "))       { style="realistic";       prompt=body.slice(7).trim();  }
+
+    if (!prompt) { await send(chatId,"❗ مثال: `!صورة قطة على القمر`",msg.message_id); return; }
+
+    await send(chatId,"🎨 جاري توليد الصورة...");
+    try {
+      const fullPrompt = encodeURIComponent(prompt + ", " + style + ", high quality");
+      const imageUrl   = `https://image.pollinations.ai/prompt/${fullPrompt}?width=768&height=768&nologo=true`;
+      await bot.sendPhoto(chatId, imageUrl, { caption: `🎨 ${prompt}`, parse_mode:"Markdown" });
+    } catch(e) {
+      console.error("Image:", e.message);
+      await send(chatId,"❌ مش قادر يولّد الصورة، جرّب تاني");
+    }
+    return;
+  }
+
   // تذكيرات
   if (body.startsWith("!ذكرني ")) {
     const parts=body.slice(7).trim().split(" "), text=parts.slice(1).join(" ");
