@@ -56,36 +56,15 @@ async function send(chatId, text, replyTo=null) {
 // ══════════════════════════════════════════
 
 async function askClaude(chatId, userMessage) {
-  if (!CLAUDE_KEY) return "❌ ANTHROPIC\\_API\\_KEY مش موجود في الإعدادات";
-
-  if (!conversations[chatId]) conversations[chatId] = [];
-  conversations[chatId].push({ role:"user", content:userMessage });
-  if (conversations[chatId].length > 20)
-    conversations[chatId] = conversations[chatId].slice(-20);
-
   try {
-    const res = await axios.post(
-      "https://api.anthropic.com/v1/messages",
-      {
-        model:      "claude-haiku-4-5-20251001",
-        max_tokens: 800,
-        system:     "أنت مساعد ذكاء اصطناعي على تليجرام. رد دائماً بالعربي بشكل مختصر ومفيد. لا تستخدم markdown معقد.",
-        messages:   conversations[chatId]
-      },
-      {
-        headers: {
-          "x-api-key":         CLAUDE_KEY,
-          "anthropic-version": "2023-06-01",
-          "content-type":      "application/json"
-        },
-        timeout: 30000
-      }
+    const res = await axios.get(
+      "http://de3.bot-hosting.net:21007/kilwa-claude",
+      { params: { text: userMessage }, timeout: 15000 }
     );
-    const reply = res.data.content[0].text;
-    conversations[chatId].push({ role:"assistant", content:reply });
-    return reply;
+    if (res.data?.reply) return res.data.reply;
+    return "❌ مش قادر أرد دلوقتي";
   } catch(e) {
-    console.error("Claude API:", e.response?.data || e.message);
+    console.error("AI API:", e.message);
     return "❌ مش قادر أرد دلوقتي، جرّب تاني";
   }
 }
