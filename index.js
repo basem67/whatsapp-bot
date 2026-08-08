@@ -197,10 +197,69 @@ const HELP = `🤖 *أوامر البوت*
 \`!حذف رد أهلا\`
 
 ━━━━━━━━━━━━━━━━
+🌐 *بحث وأخبار*
+━━━━━━━━━━━━━━━━
+\`!بحث اسم محمد\`
+\`!أخبار\`
+\`!يوتيوب رابط\`
+\`!qr https://google.com\`
+
+━━━━━━━━━━━━━━━━
 🤖 *ذكاء اصطناعي*
 ━━━━━━━━━━━━━━━━
 بعت أي كلام بدون ! ← Claude يرد
 \`!مسح المحادثة\` ← تبدأ من أول`;
+
+// ══════════════════════════════════════════
+// 🌐  بحث في الويب
+// ══════════════════════════════════════════
+
+async function webSearch(query) {
+  try {
+    const res = await axios.get("https://api.duckduckgo.com/", {
+      params: { q: query, format: "json", no_html: 1, skip_disambig: 1 },
+      timeout: 8000
+    });
+    const d = res.data;
+    let result = "";
+
+    if (d.AbstractText) result += `📖 *${d.Heading}*
+${d.AbstractText}
+
+`;
+
+    if (d.RelatedTopics?.length) {
+      result += "🔗 *نتائج ذات صلة:*\n";
+      d.RelatedTopics.slice(0, 4).forEach((t, i) => {
+        if (t.Text) result += `${i+1}. ${t.Text.slice(0,120)}...\n`;
+      });
+    }
+
+    return result || "❌ مش لاقي نتايج لـ: " + query;
+  } catch(e) {
+    return "❌ خطأ في البحث: " + e.message;
+  }
+}
+
+// ══════════════════════════════════════════
+// 📰  أخبار عربية
+// ══════════════════════════════════════════
+
+async function getArabicNews() {
+  try {
+    const feed = await rss.parseURL("https://feeds.bbci.co.uk/arabic/rss.xml");
+    const items = feed.items.slice(0, 6);
+    let msg = "📰 *آخر الأخبار - BBC عربي*\n\n";
+    items.forEach((item, i) => {
+      msg += `${i+1}. *${item.title}*\n`;
+      if (item.contentSnippet) msg += `${item.contentSnippet.slice(0,80)}...\n`;
+      msg += `🔗 ${item.link}\n\n`;
+    });
+    return msg;
+  } catch(e) {
+    return "❌ مش قادر يجيب الأخبار دلوقتي";
+  }
+}
 
 // ══════════════════════════════════════════
 // 💬  معالجة الرسائل
@@ -318,6 +377,64 @@ _${style}_`,
   if (body==="!ردودي")              { await send(chatId,listReplies(chatId),msg.message_id); return; }
   if (body.startsWith("!حذف رد "))  { const k=body.slice(8).trim(); await send(chatId,deleteReply(chatId,k)?`🗑️ حُذف رد "${k}"`:`❌ مش لاقي "${k}"`,msg.message_id); return; }
   if (body==="!مسح المحادثة")       { conversations[chatId]=[]; await send(chatId,"✅ تم مسح المحادثة — ابدأ من أول 🔄",msg.message_id); return; }
+
+  // 🌐 بحث في الويب
+  if (body.startsWith("!بحث ")) {
+    const query = body.slice(5).trim();
+    await send(chatId, "🌐 جاري البحث...");
+    await send(chatId, await webSearch(query), msg.message_id);
+    return;
+  }
+
+  // 📰 أخبار
+  if (body === "!أخبار" || body === "!اخبار") {
+    await send(chatId, "📰 جاري تحميل الأخبار...");
+    await send(chatId, await getArabicNews(), msg.message_id);
+    return;
+  }
+
+  // 🔣 QR Code
+  if (body.startsWith("!qr ") || body.startsWith("!QR ")) {
+    const text = body.slice(4).trim();
+    if (!text) { await send(chatId, "❗ مثال: `!qr https://google.com`", msg.message_id); return; }
+    try {
+      const buffer = await QRCode.toBuffer(text, { width: 400, margin: 2,
+        color: { dark:"#000000", light:"#FFFFFF" } });
+      await bot.sendPhoto(chatId, buffer, { caption: `🔣 QR Code لـ: ${text}` });
+    } catch(e) { await send(chatId, "❌ خطأ في توليد QR"); }
+    return;
+  }
+
+  // 🎥 يوتيوب
+  if (body.startsWith("!يوتيوب ") || body.startsWith("!youtube ")) {
+    const url = body.includes("!يوتيوب ") ? body.slice(8).trim() : body.slice(9).trim();
+    if (!url || !url.includes("youtu")) { await send(chatId,"❗ مثال: `!يوتيوب https://youtu.be/...`",msg.message_id); return; }
+    await send(chatId, "🎵 جاري التحميل...");
+    try {
+      const info    = await ytdl.getInfo(url);
+      const title   = info.videoDetails.title;
+      const duration = parseInt(info.videoDetails.lengthSeconds);
+
+      if (duration > 600) {
+        await send(chatId, `❌ الفيديو طويل جداً (${Math.floor(duration/60)} دقيقة)
+الحد الأقصى 10 دقائق`); return;
+      }
+
+      await send(chatId, `⬇️ بيتحمّل: *${title}*
+انتظر شوية...`);
+
+      const stream = ytdl(url, { filter:"audioonly", quality:"lowestaudio" });
+      await bot.sendAudio(chatId, stream, {
+        caption:    `🎵 ${title}`,
+        title:      title,
+        parse_mode: "Markdown"
+      });
+    } catch(e) {
+      console.error("YouTube:", e.message);
+      await send(chatId, "❌ مش قادر يحمّل الفيديو ده\nتأكد من الرابط أو جرّب فيديو تاني");
+    }
+    return;
+  }
 
   // 🤖 كل حاجة تانية ← Claude AI
   const typing = bot.sendChatAction(chatId, "typing");
