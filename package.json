@@ -5,7 +5,10 @@
   "scripts": { "start": "node index.js" },
   "dependencies": {
     "node-telegram-bot-api": "^0.66.0",
-    "axios": "^1.7.0"
+    "axios": "^1.7.0",
+    "qrcode": "^1.5.3",
+    "@distube/ytdl-core": "^4.16.10",
+    "rss-parser": "^3.13.0"
   },
   "engines": { "node": ">=18.0.0" }
 }
