@@ -240,21 +240,31 @@ bot.on("message", async (msg) => {
   // 🎨 توليد صور
   if (body.startsWith("!صورة")) {
     let style = "realistic", prompt = "";
-    if (body.startsWith("!صورة-انمي "))      { style="anime";           prompt=body.slice(11).trim(); }
-    else if (body.startsWith("!صورة-فن "))    { style="digital art";     prompt=body.slice(9).trim();  }
-    else if (body.startsWith("!صورة-واقعية ")){ style="photorealistic";  prompt=body.slice(13).trim(); }
-    else if (body.startsWith("!صورة "))       { style="realistic";       prompt=body.slice(7).trim();  }
+    if (body.startsWith("!صورة-انمي "))       { style="anime";          prompt=body.slice(11).trim(); }
+    else if (body.startsWith("!صورة-فن "))     { style="digital art";    prompt=body.slice(9).trim();  }
+    else if (body.startsWith("!صورة-واقعية ")) { style="photorealistic"; prompt=body.slice(13).trim(); }
+    else if (body.startsWith("!صورة "))        { style="realistic";      prompt=body.slice(7).trim();  }
 
     if (!prompt) { await send(chatId,"❗ مثال: `!صورة قطة على القمر`",msg.message_id); return; }
 
-    await send(chatId,"🎨 جاري توليد الصورة...");
+    await send(chatId, "🎨 جاري توليد الصورة... ⏳");
+
     try {
-      const fullPrompt = encodeURIComponent(prompt + ", " + style + ", high quality");
-      const imageUrl   = `https://image.pollinations.ai/prompt/${fullPrompt}?width=768&height=768&nologo=true`;
-      await bot.sendPhoto(chatId, imageUrl, { caption: `🎨 ${prompt}`, parse_mode:"Markdown" });
+      const fullPrompt  = encodeURIComponent(prompt + ", " + style + ", high quality, detailed");
+      const imageUrl    = `https://image.pollinations.ai/prompt/${fullPrompt}?width=768&height=768&nologo=true&seed=${Math.floor(Math.random()*99999)}`;
+
+      // نحمّل الصورة كـ buffer الأول عشان نبعتها صح
+      const imgRes = await axios.get(imageUrl, { responseType:"arraybuffer", timeout:30000 });
+      const buffer = Buffer.from(imgRes.data);
+
+      await bot.sendPhoto(chatId, buffer, {
+        caption:    `🎨 *${prompt}*
+_${style}_`,
+        parse_mode: "Markdown"
+      });
     } catch(e) {
-      console.error("Image:", e.message);
-      await send(chatId,"❌ مش قادر يولّد الصورة، جرّب تاني");
+      console.error("Image error:", e.message);
+      await send(chatId, "❌ مش قادر يولّد الصورة دلوقتي، جرّب تاني بعد شوية");
     }
     return;
   }
